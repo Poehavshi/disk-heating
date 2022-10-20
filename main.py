@@ -102,27 +102,36 @@ class Program:
         for k in range(1, len(self.matrix)):
             self.matrix[k][-1] = self.Ub
 
-        # todo написать прямой ход вычисления прогоночных коэффициентов
         for k in range(1, len(self.matrix)):
-            for i in range(len(self.matrix[k]) - 1):
-                A = self.alpha / (self.c * self.l)
-                C = 2 * self.k / (self.c * self.hr ** 2)
+            A = self.alpha / (self.c * self.l)
+            C = 2 * self.k / (self.c * self.hr ** 2)
+            delta = C * self.ht
+            mu = 1 + A * self.ht + C * self.ht
 
-                delta = C * self.ht
-                mu = 1 + A * self.ht + C * self.ht
-                if i == 0:
-                    p0 = delta / mu
-                    q0 = delta / mu * self.matrix[k-1][1] + self.matrix[k-1][0]
-                    self.matrix[k][0] = p0 * self.matrix[k][1] + q0
-                else:
-                    self.matrix[k][i] = self.matrix[k - 1][i] + self.ht * (
-                            -2 * (self.alpha / (self.c * self.l)) * (self.matrix[k - 1][i] - self.Uc) + (
-                            self.k / (self.c * self.mas_r[i])) * (
-                                    ((self.matrix[k - 1][i + 1] - self.matrix[k - 1][i - 1]) / (2 * self.hr)) +
-                                    self.mas_r[i] * ((self.matrix[k - 1][i + 1] - 2 * self.matrix[k - 1][i] +
-                                                      self.matrix[k - 1][i - 1]) / (
-                                                             self.c * self.hr * self.hr))))
-        # todo а тут обратный ход
+            ps = [delta / mu]
+            qs = [delta / mu * self.matrix[k - 1][1] + self.matrix[k - 1][0]]
+            for i in range(1, len(self.matrix[k]) - 1):
+                B = self.k / (2 * self.c * self.mas_r[i])
+                gamma = A * self.ht + (2 * B * self.ht * self.mas_r[i]) / self.hr ** 2
+                epsilon = (B * self.ht) / (2 * self.hr) + (B * self.ht * self.mas_r[i]) / (self.hr ** 2)
+                beta = (B * self.ht * self.mas_r[i]) / (self.hr ** 2) - (B * self.ht) / (2 * self.hr)
+                sigma = (B * self.ht * self.mas_r[i]) / (self.hr ** 2)
+
+                # p_i = ε / (〖βp_(i-1) + σp〗_(i - 1) + γ + 1)
+                ps.append(epsilon / (beta * ps[i-1] + sigma * ps[i-1] + gamma + 1))
+                # q_i=(βv_(i-1)^k+(γ-1) v_i^k+εv_(i+1)^k-βq_(i-1) 〖-σq〗_(i-1))/(〖βp_(i-1)+σp〗_(i-1)+γ+1)
+                qs.append(
+                    (beta * self.matrix[k - 1][i - 1] + (gamma - 1) * self.matrix[k - 1][i] + epsilon *
+                     self.matrix[k - 1][i + 1] - beta * qs[i-1] - sigma * qs[i-1]) / (
+                                beta * ps[i-1] + sigma * ps[i-1] + gamma + 1))
+
+            for i in range(len(self.matrix[k]) - 2, 0, -1):
+                B = self.k / (2 * self.c * self.mas_r[i])
+                gamma = A * self.ht + (2 * B * self.ht * self.mas_r[i]) / self.hr ** 2
+                if i == len(self.matrix[k]) - 1:
+                    self.matrix[k][i] = (1/(gamma+1)) * (beta*self.matrix[k-1][i-1] + (gamma-1)*self.matrix[k-1][i])
+                elif i != len(self.matrix[k]) - 2:
+                    self.matrix[k][i] = self.matrix[k][i + 1] * ps[i] + qs[i]
 
     def build(self):
         self.generate_matrix()
