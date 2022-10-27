@@ -1,3 +1,4 @@
+import pprint
 import tkinter as tk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -41,7 +42,7 @@ class Program:
         self.label_I_value = tk.Label(text="Input the I value")
         self.label_I_value.grid(row=4, column=2, padx=30)
 
-        self.entry_I_value = tk.Entry(textvariable=tk.StringVar(self.root, value='20'))
+        self.entry_I_value = tk.Entry(textvariable=tk.StringVar(self.root, value='1000'))
         self.entry_I_value.grid(row=4, column=3, padx=40)
 
         # K
@@ -91,47 +92,56 @@ class Program:
         self.mas_t = [self.ht * i for i in range(int(K) + 1)]
 
         # список из нулей
+        # длина строки I+1 (количество столбцов)
+        # длина столбца K+1 (количество строк)
         self.matrix = [[0 for _ in range(int(I) + 1)] for _ in range(int(K) + 1)]
 
-        # граничные условия
+        # граничные условия, заполняем нулевую строку
         # v_i ^ 0 = ψ_i, i =¯(0, I);
         for i in range(len(self.matrix[0])):
             self.matrix[0][i] = self.phi_r(self.mas_r[i])
 
+        # граничные условия, заполняем последний столбец
         # v_I^k=u_b,k=¯(1,K);
         for k in range(1, len(self.matrix)):
             self.matrix[k][-1] = self.Ub
-
+        # дальше создаём прогоночные коэффициенты, а потом идём обратным ходом и заполняем столбец от конца
         for k in range(1, len(self.matrix)):
             A = self.alpha / (self.c * self.l)
             C = 2 * self.k / (self.c * self.hr ** 2)
             delta = C * self.ht
             mu = 1 + A * self.ht + C * self.ht
+            sigma = -1 + A * self.ht + C * self.ht
 
+            # p0 = delta/mu
             ps = [delta / mu]
-            qs = [delta / mu * self.matrix[k - 1][1] + self.matrix[k - 1][0]]
+            # q0 = delta/mu * u_1^k - sigma/mu * u_0^k
+            qs = [delta / mu * self.matrix[k - 1][1] - sigma / mu * self.matrix[k - 1][0]]
             for i in range(1, len(self.matrix[k]) - 1):
                 B = self.k / (2 * self.c * self.mas_r[i])
                 gamma = A * self.ht + (2 * B * self.ht * self.mas_r[i]) / self.hr ** 2
                 epsilon = (B * self.ht) / (2 * self.hr) + (B * self.ht * self.mas_r[i]) / (self.hr ** 2)
                 beta = (B * self.ht * self.mas_r[i]) / (self.hr ** 2) - (B * self.ht) / (2 * self.hr)
-                sigma = (B * self.ht * self.mas_r[i]) / (self.hr ** 2)
 
-                # p_i = ε / (〖βp_(i-1) + σp〗_(i - 1) + γ + 1)
-                ps.append(epsilon / (beta * ps[i-1] + sigma * ps[i-1] + gamma + 1))
+                # p_i = ε / (〖βp_(i-1) + γ + 1)
+                ps.append(epsilon / (gamma + 1 - beta * ps[i - 1]))
                 # q_i=(βv_(i-1)^k+(γ-1) v_i^k+εv_(i+1)^k-βq_(i-1) 〖-σq〗_(i-1))/(〖βp_(i-1)+σp〗_(i-1)+γ+1)
                 qs.append(
-                    (beta * self.matrix[k - 1][i - 1] + (gamma - 1) * self.matrix[k - 1][i] + epsilon *
-                     self.matrix[k - 1][i + 1] - beta * qs[i-1] - sigma * qs[i-1]) / (
-                                beta * ps[i-1] + sigma * ps[i-1] + gamma + 1))
+                    (beta * self.matrix[k - 1][i - 1] - (gamma - 1) * self.matrix[k - 1][i] + epsilon *
+                     self.matrix[k - 1][i + 1] + beta * qs[i - 1]) / (
+                            gamma + 1 - beta * ps[i - 1]))
 
-            for i in range(len(self.matrix[k]) - 2, 0, -1):
-                B = self.k / (2 * self.c * self.mas_r[i])
-                gamma = A * self.ht + (2 * B * self.ht * self.mas_r[i]) / self.hr ** 2
-                if i == len(self.matrix[k]) - 1:
-                    self.matrix[k][i] = (1/(gamma+1)) * (beta*self.matrix[k-1][i-1] + (gamma-1)*self.matrix[k-1][i])
+            for i in range(len(self.matrix[k]) - 2, -1, -1):
+                if i == len(self.matrix[k]) - 2:
+                    B = self.k / (2 * self.c * self.mas_r[i])
+                    gamma = A * self.ht + (2 * B * self.ht * self.mas_r[i]) / self.hr ** 2
+                    beta = (B * self.ht * self.mas_r[i]) / (self.hr ** 2) - (B * self.ht) / (2 * self.hr)
+                    self.matrix[k][i] = (1 / (gamma + 1)) * (beta * self.matrix[k - 1][i - 1]
+                                                             - (gamma - 1) * self.matrix[k - 1][i]
+                                                             + beta * self.matrix[k][i - 1])
                 elif i != len(self.matrix[k]) - 2:
                     self.matrix[k][i] = self.matrix[k][i + 1] * ps[i] + qs[i]
+        # pprint.pprint(self.matrix)
 
     def build(self):
         self.generate_matrix()
@@ -139,16 +149,11 @@ class Program:
             ind = 0
             while self.mas_r[ind] < float(self.entry_value.get()):
                 ind += 1
-            # print(ind,self.mas_x)
-            # print([self.matrix[i][ind] for i in range(len(self.matrix))])
-            # print(self.hr)
             plt.plot(self.mas_t, [self.matrix[i][ind] for i in range(len(self.matrix))])
         else:
             ind = 0
             while self.mas_t[ind] < float(self.entry_value.get()):
                 ind += 1
-            # print(ind,self.mas_y)
-            # print([self.matrix[ind][i] for i in range(len(self.matrix[ind]))])
             plt.plot(self.mas_r, [self.matrix[ind][i] for i in range(len(self.matrix[ind]))])
         plt.gcf().canvas.draw()
         self.canvas.draw()
