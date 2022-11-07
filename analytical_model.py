@@ -116,4 +116,4 @@ class SumModel:
 
 if __name__ == "__main__":
     model = SumModel()
-    print(model.mu_array)
+

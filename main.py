@@ -190,6 +190,8 @@ class Program:
         plt.clf()
         self.canvas.draw()
 
+
+
     def phi_r(self, value):
         if float(value) <= float(self.entry_R_value.get()) / 4:
             return 10

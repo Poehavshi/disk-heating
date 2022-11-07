@@ -186,20 +186,23 @@ class Program:
         self.clear_button = tk.Button(text="clear", command=self.clear)
         self.clear_button.grid(row=10, column=2, columnspan=2)
 
+        self.diff_button = tk.Button(text='find diff', command=self.find_diff)
+        self.diff_button.grid(row=11, column=2, columnspan=2)
+
         self.root.mainloop()
 
     def select_another_variable(self):
         self.current_variant = self.var.get()
 
-    def generate_matrix(self):
+    def generate_matrix(self, hr_coef=1.0, ht_coef=1.0):
         # шаги сетки
         self.I = self.entry_I_value.get()
         self.R = self.entry_R_value.get()
-        self.hr = float(self.R) / float(self.I)
+        self.hr = (float(self.R) / float(self.I)) * hr_coef
 
         self.K = self.entry_K_value.get()
         self.T = self.entry_T_value.get()
-        self.ht = float(self.T) / float(self.K)
+        self.ht = (float(self.T) / float(self.K)) * ht_coef
 
         self.mas_r = [self.hr * i for i in range(int(self.I) + 1)]
         self.mas_t = [self.ht * i for i in range(int(self.K) + 1)]
@@ -277,6 +280,21 @@ class Program:
     def clear(self):
         plt.clf()
         self.canvas.draw()
+
+    def find_diff(self):
+        self.generate_matrix()
+        summodel = SumModel()
+
+        max_eps = 0
+        for i in range(int(self.I)):
+            for k in range(int(self.K)):
+                precise_solve = summodel.calculate_sum(self.mas_r[i], self.mas_t[k], 100)
+                unprecise_solve = self.matrix[k][i]
+                eps = abs(precise_solve - unprecise_solve)
+                if eps > max_eps:
+                    max_eps = eps
+        print("eps", max_eps)
+
 
     def phi_r(self, value):
         if float(value) <= float(self.entry_R_value.get()) / 4:
