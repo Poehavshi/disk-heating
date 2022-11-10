@@ -1,5 +1,4 @@
 import tkinter as tk
-import tkinter as tk
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -83,6 +82,9 @@ class Program:
         self.clear_button = tk.Button(text="clear", command=self.clear)
         self.clear_button.grid(row=10, column=2, columnspan=2)
 
+        self.diff_button = tk.Button(text='find diff', command=self.find_diff)
+        self.diff_button.grid(row=11, column=2, columnspan=2)
+
         self.root.mainloop()
 
     def select_another_variable(self):
@@ -160,14 +162,20 @@ class Program:
             ind = 0
             while self.mas_r[ind] < float(self.entry_value.get()):
                 ind += 1
+            # label=f"r={self.entry_value.get()}, I={self.I}, K={self.K}"
             plt.plot(self.mas_t, [self.matrix[i][ind] for i in range(len(self.matrix))],
-                     label=f"I={self.I}, K={self.K}")
+                     label=f"r={self.entry_value.get()}, I={self.I}, K={self.K}")
+            plt.xlabel("r, cm")
+            plt.ylabel("v(r,t), °C")
         else:
             ind = 0
             while self.mas_t[ind] < float(self.entry_value.get()):
                 ind += 1
             plt.plot(self.mas_r, [self.matrix[ind][i] for i in range(len(self.matrix[ind]))],
-                     label=f"I={self.I}, K={self.K}")
+                     label=f"t={self.entry_value.get()}, I={self.I}, K={self.K}")
+            plt.xlabel("t, с")
+            plt.ylabel("v(r,t), °C")
+        plt.legend()
         plt.gcf().canvas.draw()
         self.canvas.draw()
 
@@ -183,14 +191,33 @@ class Program:
             summodel = SumModel()
             plot_data = summodel.generate_w_data(100, float(self.entry_value.get()), "t", int(R))
             plt.plot(plot_data[0], plot_data[1], label=f"analytical t={self.entry_value.get()}")
+        plt.legend()
         plt.gcf().canvas.draw()
         self.canvas.draw()
+
+    def find_diff(self):
+        self.generate_matrix()
+        summodel = SumModel()
+
+        max_eps = 0
+        max_pair = None
+        # for i in range(int(self.I)):
+        #     for k in range(1, int(self.K)):
+        i = int(self.I) // 2
+        k = int(self.K) // 2
+
+        precise_solve = summodel.calculate_sum(self.mas_r[i], self.mas_t[k], 100)
+        unprecise_solve = self.matrix[k][i]
+        eps = abs(precise_solve - unprecise_solve)
+        if eps > max_eps:
+            max_eps = eps
+            max_pair = (k, i)
+        print("eps", max_eps)
+        print("max pair", max_pair)
 
     def clear(self):
         plt.clf()
         self.canvas.draw()
-
-
 
     def phi_r(self, value):
         if float(value) <= float(self.entry_R_value.get()) / 4:

@@ -286,14 +286,20 @@ class Program:
         summodel = SumModel()
 
         max_eps = 0
-        for i in range(int(self.I)):
-            for k in range(int(self.K)):
-                precise_solve = summodel.calculate_sum(self.mas_r[i], self.mas_t[k], 100)
-                unprecise_solve = self.matrix[k][i]
-                eps = abs(precise_solve - unprecise_solve)
-                if eps > max_eps:
-                    max_eps = eps
+        max_pair = None
+        # for i in range(int(self.I)):
+        #     for k in range(1, int(self.K)):
+        i = int(self.I) // 2
+        k = int(self.K) // 2
+
+        precise_solve = summodel.calculate_sum(self.mas_r[i], self.mas_t[k], 100)
+        unprecise_solve = self.matrix[k][i]
+        eps = abs(precise_solve - unprecise_solve)
+        if eps > max_eps:
+            max_eps = eps
+            max_pair = (k,i)
         print("eps", max_eps)
+        print("max pair", max_pair)
 
 
     def phi_r(self, value):
