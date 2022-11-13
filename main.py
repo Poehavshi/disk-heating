@@ -1,9 +1,101 @@
 import tkinter as tk
 
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from numpy import exp
+from scipy.special import jv, jn_zeros
 
-from analytical_model import SumModel
+
+class SumModel:
+    def __init__(self,
+                 R=4,
+                 l=0.5,
+                 u_c=0,
+                 u_b=0,
+                 alpha=0.005,
+                 T=150,
+                 k=0.065,
+                 c=1.35
+                 ):
+        self.c = c
+        self.k = k
+        self.T = T
+        self.alpha = alpha
+        self.u_b = u_b
+        self.u_c = u_c
+        self.l = l
+        self.R = R
+
+        self.mu_array = jn_zeros(0, 1251)
+
+    def _calculate_term(self, n: int, r: float, t: float) -> float:
+        """
+        Функция подсчёта n-ого слагаемого суммы
+
+        :param n: порядок слагаемого.
+        :param r: аргумент функции w.
+        :param t: аргумент функции w.
+
+        :return значение одного слагаемого суммы
+        """
+        mu_n = self.mu_array[n - 1]
+        result = (5 * jv(1, mu_n / 4)) / (mu_n * (jv(1, mu_n)) ** 2)
+        result *= exp(-(t * (self.l * self.k * (mu_n / self.R) ** 2 + 2 * self.alpha)) / (self.l * self.c))
+        result *= jv(0, (mu_n * r) / self.R)
+        return result
+
+    def phi(self, N, t):
+        result = ((self.R ** 2) * self.c * 5 * 2 ** 0.5) / (2 * self.k * np.pi ** 2 * t * (N - 0.25) ** 1.5)
+        result *= np.exp((-(2 * self.alpha * t) / (self.l * self.c)) - (
+                (t * self.k * (np.pi ** 2) * ((N - 0.25) ** 2)) / (self.c * (self.R ** 2))))
+
+        return result
+
+    def calculate_number_of_iterations(self, epsilon, t):
+        N = 1
+        while self.phi(N, t) > epsilon:
+            N += 1
+        return N
+
+    def calculate_eps_of_iterations(self, N, t):
+        return self.phi(N, t)
+
+    def calculate_sum(self, r: float, t: float, N: int) -> float:
+        """
+        Функция подсчёта значения функции w(r, t)
+
+        :param r: аргумент функции w.
+        :param t: аргумент функции w.
+        :param N: количество элементов ряда
+
+        :return значение функции w(r,t)
+        """
+        result = 0
+        for i in range(N):
+            result += self._calculate_term(i + 1, r, t)
+        return result
+
+    def generate_w_data(self, N: int, r: float, p: str, x: int):
+        """
+        Генерирует значения функции w(r, t)
+
+        :param N: количество элементов (точность подсчёта функции)
+        :param r: фиксированный параметр.
+        :param p: строка с тем параметром, который является фиксированным.
+        :param x: максимальное значение изменяемого параметра
+
+        :return вектор двух numpy массивов
+        """
+        ox = np.linspace(0.001, x, 800)
+        w = np.zeros(800)
+        if p == 'r':
+            for i in range(800):
+                w[i] = self.calculate_sum(r=r, t=ox[i], N=N)
+        else:
+            for i in range(800):
+                w[i] = self.calculate_sum(r=ox[i], t=r, N=N)
+        return ox, w
 
 
 class Program:
@@ -154,7 +246,6 @@ class Program:
                                                              + beta * self.matrix[k][i - 1])
                 elif i != len(self.matrix[k]) - 2:
                     self.matrix[k][i] = self.matrix[k][i + 1] * ps[i] + qs[i]
-        # pprint.pprint(self.matrix)
 
     def build(self):
         self.generate_matrix()
@@ -165,7 +256,7 @@ class Program:
             # label=f"r={self.entry_value.get()}, I={self.I}, K={self.K}"
             plt.plot(self.mas_t, [self.matrix[i][ind] for i in range(len(self.matrix))],
                      label=f"r={self.entry_value.get()}, I={self.I}, K={self.K}")
-            plt.xlabel("r, cm")
+            plt.xlabel("t, с")
             plt.ylabel("v(r,t), °C")
         else:
             ind = 0
@@ -173,7 +264,7 @@ class Program:
                 ind += 1
             plt.plot(self.mas_r, [self.matrix[ind][i] for i in range(len(self.matrix[ind]))],
                      label=f"t={self.entry_value.get()}, I={self.I}, K={self.K}")
-            plt.xlabel("t, с")
+            plt.xlabel("r, cm")
             plt.ylabel("v(r,t), °C")
         plt.legend()
         plt.gcf().canvas.draw()
